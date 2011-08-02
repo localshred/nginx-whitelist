@@ -132,7 +132,7 @@ ngx_module_t  ngx_http_whitelist_module = {
   *
   *      whitelist key=5275481fce3f2919fbbb8c95847c1001                  \
   *                  ip=208.53.44.220                                    \
-  *                  header=ASR-2f42f09c-2749-25b5-eafe-588f5995dc6b
+  *                  header=ASR-2f42f09c-2749-25b5-eafe-588f5995dc6b;
   *
   */
 static char *ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
@@ -241,10 +241,10 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Find or create a rule for this request key
      */
-    ngx_int_t rc;
     if (ngx_hash_find(wlcf->rules, pair->hash, pair->key.data, pair->key.len) == NULL) {
         // Create a new empty rule
         if (header == NULL) {
+            header.len = strlen(NO_DATA) - 1;
             header.data = NO_DATA;
         }
         rc = ngx_hash_add_key(wlcf->rules, &pair->key, &header, NGX_HASH_READONLY_KEY);
@@ -289,11 +289,10 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
         break;
     }
     
-    
     /*
-     * Populate the key data from the request
+     * TODO Populate the key data from the request
      */
-    
+    ngx_http_whitelist_get_request_parameter();
 
     key_hash_pair *pair;
     pair = malloc(sizeof(key_hash_pair));
@@ -323,7 +322,6 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     /*
      * Otherwise log a warning and decline the request
      */
-    
     ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                        "Request denied by whitelist rules: "
                        "key=%s, ip=%s", key.data, ip.data, header.data);
@@ -406,20 +404,33 @@ build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
     }
 }
 
-ngx_int_t
+ngx_http_variable_value_t
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
+    ngx_int_t                   key;
+    ngx_http_variable_value_t  *vv;
+    
     if (wlcf->check_param != NULL) {
-        ngx_str_t var;
-        ngx_int_t key;
-        key = ngx_hash_strlow(var.data, var.data, var.len);
-        val = ngx_http_ssi_get_variable(r, &var, key);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "getting value from param \"%V\"", wlcf->check_param);
+
+        key = ngx_hash_strlow(wlcf->check_param.data, wlcf->check_param.data, wlcf->check_param.len);
+        
+        vv = ngx_http_get_variable(r, wlcf->check_param, key);
+    }
+    
+    if (vv == NULL && wlcf->check_header != NULL) {
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "getting value from header \"%V\"", wlcf->check_param);
+        
         
     }
     
-    if (wlcf->check_header != NULL) {
-        
+    if (vv == NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "Unable to get whitelist key from request, "
+                           "neither param nor header values were found.");
     }
     
-    return NGX_ERROR;
+    return vv;
 }
