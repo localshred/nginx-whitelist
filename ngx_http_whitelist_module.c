@@ -166,7 +166,8 @@ static ngx_int_t ngx_http_whitelist_init(ngx_conf_t *cf);
 void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip);
 
 /*
- * Get the hashed key value from the request, by parameter first, then header. 0 value indicates not found.
+ * Get the hashed key value from the request, by parameter first, then header.
+ * NULL value indicates not found.
  */
 ngx_int_t
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
@@ -240,8 +241,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     }
     
     key_hash_pair *pair;
-    pair = malloc(sizeof(key_hash_pair));
-    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_palloc(sizeof(key_hash_pair));
+    pair->key.data = ngx_palloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
     
     /*
@@ -301,7 +302,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
     
     /*
-     * TODO Populate the key data from the request
+     * Populate the key data from the request
      */
     key = get_key_from_request(wlcf, r);
     
@@ -314,8 +315,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
 
     key_hash_pair *pair;
-    pair = malloc(sizeof(key_hash_pair));
-    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_palloc(sizeof(key_hash_pair));
+    pair->key.data = ngx_palloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
 
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
