@@ -165,6 +165,12 @@ static ngx_int_t ngx_http_whitelist_init(ngx_conf_t *cf);
  */
 void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip);
 
+/*
+ * Get the hashed key value from the request, by parameter first, then header. 0 value indicates not found.
+ */
+ngx_int_t
+get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
+
 static char *
 ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf)
@@ -241,13 +247,17 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Find or create a rule for this request key
      */
-    if (ngx_hash_find(wlcf->rules, pair->hash, pair->key.data, pair->key.len) == NULL) {
+    if (ngx_hash_find(wlcf->rules, pair->hash, pair->key.data, pair->key.len)
+        == NULL) {
+            
         // Create a new empty rule
         if (header == NULL) {
             header.len = strlen(NO_DATA) - 1;
             header.data = NO_DATA;
         }
-        rc = ngx_hash_add_key(wlcf->rules, &pair->key, &header, NGX_HASH_READONLY_KEY);
+        
+        rc = ngx_hash_add_key(wlcf->rules, &pair->key, &header,
+            NGX_HASH_READONLY_KEY);
         if (rc != NGX_OK) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Unable to add whitelist rule for params: "
@@ -272,9 +282,10 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 {
     ngx_http_whitelist_loc_conf_t   *wlcf;
     struct sockaddr_in              *sin;
-    ngx_str_t                       header, key, *ip;
+    ngx_str_t                       header, key, *ip, set_header;
+    ngx_table_elt_t                 *new_header;
     ngx_uint_t                      i;
-    
+        
     wlcf = ngx_http_get_module_loc_conf(r, ngx_http_whitelist_module);
     
     /*
@@ -292,7 +303,15 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     /*
      * TODO Populate the key data from the request
      */
-    ngx_http_whitelist_get_request_parameter();
+    key = get_key_from_request(wlcf, r);
+    
+    if (key.data == NULL) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+                           "Unable to get whitelist key from request, "
+                           "neither param nor header values were found.");
+                           
+       return NGX_DECLINED;
+    }
 
     key_hash_pair *pair;
     pair = malloc(sizeof(key_hash_pair));
@@ -307,14 +326,25 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      * If a matching rule is found for this ip and key combination
      * populate the header data and let things pass
      */
-    if (ngx_hash_find(wlcf->rules, pair->hash, pair->key.data,
-            pair->key.len) != NULL) {
-                
+    set_header = ngx_hash_find(wlcf->rules, pair->hash, pair->key.data,
+             pair->key.len)
+    if (set_header != NULL) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
+        
+        if (set_header.data == NO_DATA) {
+            ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                            "Ignoring header value population");
+            return NGX_OK;
+        }
+        
+        new_header = ngx_list_push(&r->headers_out.headers);
+        if (new_header == NULL) {
+            return NGX_ERROR;
+        }
 
-        /*
-         * TODO Populate the header
-         */
+        new_header->hash = 1;
+        ngx_str_set(&new_header->key, wlcf->set_header.data);
+        ngx_str_set(&new_header->value, set_header);
         
         return NGX_OK; 
     }
@@ -397,40 +427,66 @@ build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
     strcat(h->key.data, api_key.data);
     strcat(h->key.data, ip.data);
     h->key.len = (strlen(h->key.data) - 1);
-    
-    ngx_uint_t i;
-    for (i = 0; i < (int)h->key.len; i++) {
-        h->hash = ngx_hash(&h->hash, h->key.data[i]);
-    }
+    h->hash = ngx_hash_key_lc(&h->key.data, h->key.len);
 }
 
-ngx_http_variable_value_t
+ngx_str_t
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
     ngx_int_t                   key;
-    ngx_http_variable_value_t  *vv;
+    ngx_list_part_t             *part;
+    ngx_http_variable_value_t   *vv;
+    ngx_table_elt_t             *header;
+    ngx_str_t                   found_key;
     
+    key = 0;
+    found_key = ngx_null_string();
+
+    /*
+     * Fetch the value of the check_param parameter out of the request
+     * (e.g. k=THE_KEY)
+     */
     if (wlcf->check_param != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "getting value from param \"%V\"", wlcf->check_param);
 
-        key = ngx_hash_strlow(wlcf->check_param.data, wlcf->check_param.data, wlcf->check_param.len);
+        key = ngx_hash_strlow(wlcf->check_param.data, wlcf->check_param.data,
+            wlcf->check_param.len);
         
         vv = ngx_http_get_variable(r, wlcf->check_param, key);
+        if (vv != NULL && vv.valid == 1) {
+            ngx_str_set(found_key, vv.data);
+        }
     }
     
-    if (vv == NULL && wlcf->check_header != NULL) {
+    /*
+     * If we haven't gotten a value from the parameter, fetch the value of the
+     * check_header header out of the request (e.g. X-REQUEST_KEY=THE_KEY)
+     */
+    if (found_key.data == NULL && wlcf->check_header != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "getting value from header \"%V\"", wlcf->check_param);
         
-        
+        part = &r->headers_in.headers.part;
+        header = part->elts;
+
+        for (i = 0 ;; i++) {
+            if (i >= part->nelts) {
+                if (part->next == NULL) {
+                    break;
+                }
+
+                part = part->next;
+                header = part->elts;
+                i = 0;
+            }
+            
+            if (ngx_strcmp(header[i].key.data, wlcf->check_header.data) == 0) {
+                ngx_str_set(found_key, header[i].value);
+                break;
+            }
+        }
     }
     
-    if (vv == NULL) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "Unable to get whitelist key from request, "
-                           "neither param nor header values were found.");
-    }
-    
-    return vv;
+    return found_key;
 }
