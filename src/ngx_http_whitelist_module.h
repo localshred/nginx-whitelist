@@ -18,7 +18,7 @@
 /*****************************************************************[ config ]***/
 
 
-#define NO_HEADER_DATA      ngx_string("NO_HEADER_DATA");
+#define NO_HEADER_DATA      "NO_HEADER_DATA"
 #define MAX_KEY_STR_LEN     56
 
 /*

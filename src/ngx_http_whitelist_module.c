@@ -209,7 +209,6 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     struct sockaddr_in              *sin;
     ngx_str_t                       *header, *key, *ip, *set_header;
     ngx_table_elt_t                 *new_header;
-    ngx_uint_t                      i;
         
     wlcf = ngx_http_get_module_loc_conf(r, ngx_http_whitelist_module);
     
@@ -220,7 +219,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     case AF_INET:
         if (wlcf->rules) {
             sin = (struct sockaddr_in *) r->connection->sockaddr;
-            ngx_str_set(&ip, *inet_ntoa(sin->sin_addr));
+            ngx_str_set(ip, *inet_ntoa(sin->sin_addr));
         }
         break;
     }
@@ -231,7 +230,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     key = get_key_from_request(wlcf, r);
     
     if (key->data == NULL) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
+        ngx_log_error(NGX_LOG_EMERG, r->connection->log, 0,
                            "Unable to get whitelist key from request, "
                            "neither param nor header values were found.");
                            
@@ -257,7 +256,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     if (set_header != NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
         
-        if (set_header == NO_HEADER_DATA) {
+        if (ngx_strcmp(set_header->data, NO_HEADER_DATA) == 0) {
             ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                             "Ignoring header value population");
             return NGX_OK;
@@ -269,8 +268,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
         }
 
         new_header->hash = 1;
-        ngx_str_set(&new_header->key, wlcf->set_header.data);
-        ngx_str_set(&new_header->value, set_header);
+        ngx_str_set(new_header->key, wlcf->set_header.data);
+        ngx_str_set(new_header->value, set_header);
         
         return NGX_OK; 
     }
