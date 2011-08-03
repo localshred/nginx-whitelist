@@ -7,11 +7,58 @@
 #include <ngx_http.h>
 
 
-/*************************************************************
- * Config Structures
- **************************************************************/
+/*************************************************************[ signatures ]***/
 
- 
+
+/*
+ * Set a whitelist rule, e.g.:
+ *
+ *      whitelist key=5275481fce3f2919fbbb8c95847c1001                  \
+ *                  ip=208.53.44.220                                    \
+ *                  header=ASR-2f42f09c-2749-25b5-eafe-588f5995dc6b;
+ *
+ */
+static char *ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
+
+/*
+ * Handle request forward/drop based on whitelist rules
+ */
+static ngx_int_t ngx_http_whitelist_handler(ngx_http_request_t *r);
+
+/*
+ * Create the configuration struct
+ */
+static void *ngx_http_whitelist_create_loc_conf(ngx_conf_t *cf);
+
+/*
+ * Merge the configuration struct with a previously created struct
+ */
+static char *ngx_http_whitelist_merge_loc_conf(ngx_conf_t *cf, void *parent,
+    void *child);
+
+/*
+ * Define the request handler
+ */
+static ngx_int_t ngx_http_whitelist_init(ngx_conf_t *cf);
+
+/*
+ * Takes an allocated hash pair, the api key, and the ip
+ * Builds an appropriate hash out of the key and ip
+ */
+void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip);
+
+/*
+ * Get the hashed key value from the request, by parameter first, then header.
+ * NULL value indicates not found.
+ */
+ngx_int_t
+get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
+
+
+/*****************************************************************[ config ]***/
+
+
 #define NO_DATA             "NO_DATA";
 #define MAX_KEY_STR_LEN     56
 
@@ -33,6 +80,8 @@ typedef struct {
     ngx_uint_t              hash;
     ngx_str_t               key;
 } key_hash_pair;
+
+
 
 
 /*
@@ -122,55 +171,8 @@ ngx_module_t  ngx_http_whitelist_module = {
 };
 
 
-/*************************************************************
- * Functions
- **************************************************************/
+/**************************************************************[ functions ]***/
 
-
- /*
-  * Set a whitelist rule, e.g.:
-  *
-  *      whitelist key=5275481fce3f2919fbbb8c95847c1001                  \
-  *                  ip=208.53.44.220                                    \
-  *                  header=ASR-2f42f09c-2749-25b5-eafe-588f5995dc6b;
-  *
-  */
-static char *ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
-    void *conf);
-
-/*
- * Handle request forward/drop based on whitelist rules
- */
-static ngx_int_t ngx_http_whitelist_handler(ngx_http_request_t *r);
-    
-/*
- * Create the configuration struct
- */
-static void *ngx_http_whitelist_create_loc_conf(ngx_conf_t *cf);
-
-/*
- * Merge the configuration struct with a previously created struct
- */
-static char *ngx_http_whitelist_merge_loc_conf(ngx_conf_t *cf, void *parent,
-    void *child);
-
-/*
- * Define the request handler
- */
-static ngx_int_t ngx_http_whitelist_init(ngx_conf_t *cf);
-
-/*
- * Takes an allocated hash pair, the api key, and the ip
- * Builds an appropriate hash out of the key and ip
- */
-void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip);
-
-/*
- * Get the hashed key value from the request, by parameter first, then header.
- * NULL value indicates not found.
- */
-ngx_int_t
-get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 
 static char *
 ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
