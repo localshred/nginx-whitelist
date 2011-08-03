@@ -113,8 +113,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
             return NGX_CONF_ERROR;
         }
 
-        wlcf->rules.pool = cf->pool;
-        wlcf->rules.temp_pool = cf->temp_pool;
+        wlcf->rules->pool = cf->pool;
+        wlcf->rules->temp_pool = cf->temp_pool;
 
         if (ngx_hash_keys_array_init(wlcf->rules, NGX_HASH_SMALL) != NGX_OK) {
             return NGX_CONF_ERROR;
@@ -124,23 +124,27 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Get the command args and set the appropriate data
      */
+    ngx_str_set(key, ngx_null_string);
+    ngx_str_set(ip, ngx_null_string);
+    ngx_str_set(header, ngx_null_string);
+     
     value = cf->args->elts;
     
     ngx_uint_t i;
     for (i = 1; i < cf->args->nelts; i++) {
         if (ngx_strncmp(value[i].data, "key=", 4) == 0) {
             key.data = value[i].data + 4;
-            key.len = strlen(key.data) - 1;
+            key.len = value[i].len - 4;
         }
         
         if (ngx_strncmp(value[i].data, "ip=", 3) == 0) {
             ip.data = value[i].data + 3;
-            ip.len = strlen(ip.data) - 1;
+            ip.len = value[i].len - 3;
         }
         
         if (ngx_strncmp(value[i].data, "header=", 7) == 0) {
             header.data = value[i].data + 7;
-            header.len = strlen(header.data) - 1;
+            header.len = value[i].len - 7;
         }
     }
     
@@ -162,8 +166,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     }
     
     key_hash_pair *pair;
-    pair = ngx_palloc(sizeof(key_hash_pair));
-    pair->key.data = ngx_palloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = malloc(sizeof(key_hash_pair));
+    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
     
     /*
@@ -173,7 +177,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
         == NULL) {
             
         // Create a new empty rule
-        if (header == NULL) {
+        if (header.data == NULL) {
             ngx_str_set(header, NO_HEADER_DATA);
         }
         
@@ -235,8 +239,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
 
     key_hash_pair *pair;
-    pair = ngx_palloc(sizeof(key_hash_pair));
-    pair->key.data = ngx_palloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = malloc(sizeof(key_hash_pair));
+    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
 
     ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -361,7 +365,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
     ngx_str_t                   found_key;
     
     key = 0;
-    found_key = ngx_null_string();
+    ngx_str_set(found_key, ngx_null_string);
 
     /*
      * Fetch the value of the check_param parameter out of the request
