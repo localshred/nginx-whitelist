@@ -166,8 +166,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     }
     
     key_hash_pair *pair;
-    pair = malloc(sizeof(key_hash_pair));
-    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_alloc(sizeof(key_hash_pair));
+    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
     
     /*
@@ -239,11 +239,11 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
 
     key_hash_pair *pair;
-    pair = malloc(sizeof(key_hash_pair));
-    pair->key.data = malloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_alloc(sizeof(key_hash_pair));
+    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN);
     build_key_hash_pair(pair, key, ip);
 
-    ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                     "Checking for whitelist rule: "
                     "key=%s, ip=%s", key.data, ip.data);
 
@@ -254,10 +254,10 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     set_header = ngx_hash_find(wlcf->rules, pair->hash, pair->key.data,
         pair->key.len);
     if (set_header != NULL) {
-        ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
+        ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
         
         if (set_header == NO_HEADER_DATA) {
-            ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                             "Ignoring header value population");
             return NGX_OK;
         }
@@ -358,7 +358,7 @@ build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
 static ngx_str_t
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
-    ngx_int_t                   key;
+    ngx_int_t                   key, i;
     ngx_list_part_t             *part;
     ngx_http_variable_value_t   *vv;
     ngx_table_elt_t             *header;
