@@ -152,7 +152,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
      * Read the ip address in with ngx_ptocidr to verify valid data
      */
     ngx_memzero(&cidr, sizeof(ngx_cidr_t));
-    rc = ngx_ptocidr(&ip, &cidr);
+    rc = ngx_ptocidr(ip, &cidr);
     
     if (rc == NGX_ERROR) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -177,7 +177,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
         == NULL) {
             
         // Create a new empty rule
-        if (header.data == NULL) {
+        if (header->data == NULL) {
             ngx_str_set(header, NO_HEADER_DATA);
         }
         
@@ -186,16 +186,16 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
         if (rc != NGX_OK) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Unable to add whitelist rule for params: "
-                               "key=%s, ip=%s, header=%s", key.data, ip.data,
-                               header.data);
+                               "key=%s, ip=%s, header=%s", key->data, ip->data,
+                               header->data);
             return NGX_CONF_ERROR;
         }
     }
     else {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "Whitelist rule already exists for params: "
-                           "key=%s, ip=%s, header=%s", key.data, ip.data,
-                           header.data);
+                           "key=%s, ip=%s, header=%s", key->data, ip->data,
+                           header->data);
         return NGX_CONF_ERROR;
     }
     
@@ -230,7 +230,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      */
     key = get_key_from_request(wlcf, r);
     
-    if (key.data == NULL) {
+    if (key->data == NULL) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "Unable to get whitelist key from request, "
                            "neither param nor header values were found.");
@@ -245,7 +245,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                     "Checking for whitelist rule: "
-                    "key=%s, ip=%s", key.data, ip.data);
+                    "key=%s, ip=%s", key->data, ip->data);
 
     /*
      * If a matching rule is found for this ip and key combination
@@ -280,7 +280,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      */
     ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                        "Request denied by whitelist rules: "
-                       "key=%s, ip=%s", key.data, ip.data, header.data);
+                       "key=%s, ip=%s", key->data, ip->data, header->data);
 
     return NGX_DECLINED;
 }
@@ -389,7 +389,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
      * If we haven't gotten a value from the parameter, fetch the value of the
      * check_header header out of the request (e.g. X-REQUEST_KEY=THE_KEY)
      */
-    if (found_key.data == NULL && wlcf->check_header != NULL) {
+    if (found_key->data == NULL && wlcf->check_header != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "getting value from header \"%V\"", wlcf->check_param);
         
