@@ -197,7 +197,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 {
     ngx_http_whitelist_loc_conf_t   *wlcf;
     struct sockaddr_in              *sin;
-    ngx_http_access_rule_t          *rule;
+    ngx_http_whitelist_rule_t          *rule;
     ngx_str_t                       *header, *key, *ip;
     ngx_table_elt_t                 *new_header;
         
@@ -253,8 +253,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 
         ngx_str_set(&(new_header->key), wlcf->set_header->data);
         ngx_str_set(&(new_header->value), rule->header->data);
-        new_header->hash = ngx_hash_key_lc(new_header->value->data,
-                                            new_header->value->len);
+        new_header->hash = ngx_hash_key_lc(new_header->value.data,
+                                            new_header->value.len);
         
         return NGX_OK; 
     }
@@ -407,7 +407,7 @@ static ngx_http_whitelist_rule_t *
 find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
 {
     ngx_uint_t               i;
-    ngx_http_access_rule_t  *rule;
+    ngx_http_whitelist_rule_t  *rule;
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "find rule: %d", pair->hash);
@@ -415,10 +415,10 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
     rule = rules->elts;
     for (i = 0; i < rules->nelts; i++) {
 
-        ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "rule: %d", rule[i]->key_pair->hash);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "rule: %d", rule[i]->key_pair.hash);
 
-        if (pair->hash == rule[i]->key_pair->hash) {
+        if (pair->hash == rule[i]->key_pair.hash) {
             return rule[i];
         }
     }
