@@ -98,28 +98,15 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     void *conf)
 {
     ngx_http_whitelist_loc_conf_t *wlcf = conf;
-
-    ngx_int_t           rc;
-    ngx_cidr_t          cidr;
-    ngx_str_t           *value, *key, *header, *ip;
+    ngx_int_t                       rc;
+    ngx_cidr_t                      cidr;
+    ngx_str_t                       *value, *key, *header, *ip;
+    nginx_http_whitelist_rule_t     *rule;
+    ngx_uint_t                      i;
     
     /*
      * Setup the rules hash if one does not already exist
      */
-    if (wlcf->rules == NULL) {
-        wlcf->rules = ngx_pcalloc(cf->temp_pool,
-                                    sizeof(ngx_hash_keys_arrays_t));
-        if (wlcf->rules == NULL) {
-            return NGX_CONF_ERROR;
-        }
-
-        wlcf->rules->pool = cf->pool;
-        wlcf->rules->temp_pool = cf->temp_pool;
-
-        if (ngx_hash_keys_array_init(wlcf->rules, NGX_HASH_SMALL) != NGX_OK) {
-            return NGX_CONF_ERROR;
-        }
-    }
     
     /*
      * Get the command args and set the appropriate data
@@ -130,7 +117,6 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
      
     value = cf->args->elts;
     
-    ngx_uint_t i;
     for (i = 1; i < cf->args->nelts; i++) {
         if (ngx_strncmp(value[i].data, "key=", 4) == 0) {
             key->data = value[i].data + 4;
@@ -159,10 +145,17 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
                      "invalid ip address parameter \"%V\"", &ip);
         return NGX_CONF_ERROR;
     }
-
-    if (rc == NGX_DONE) {
+    else if (rc == NGX_DONE) {
         ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
                      "low address bits of %V are meaningless", &ip);
+    }
+    
+    if (wlcf->rules == NULL) {
+        wlcf->rules = ngx_array_create(cf->pool, 4,
+                                       sizeof(ngx_http_access_rule_t));
+        if (wlcf->rules == NULL) {
+            return NGX_CONF_ERROR;
+        }
     }
     
     key_hash_pair *pair;
@@ -173,29 +166,26 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Find or create a rule for this request key
      */
-    if (ngx_hash_find(wlcf->rules, pair->hash, pair->key.data, pair->key.len)
-        == NULL) {
-            
-        // Create a new empty rule
-        if (header->data == NULL) {
-            ngx_str_set(header, NO_HEADER_DATA);
-        }
-        
-        rc = ngx_hash_add_key(wlcf->rules, &pair->key, &header,
-            NGX_HASH_READONLY_KEY);
-        if (rc != NGX_OK) {
+    rule = find_whitelist_rule(wlcf->rules, pair);
+    if (rule == NULL) {
+        rule = ngx_array_push(alcf->rules);
+        if (rule == NULL) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Unable to add whitelist rule for params: "
                                "key=%s, ip=%s, header=%s", key->data, ip->data,
                                header->data);
             return NGX_CONF_ERROR;
         }
+
+        rule->pair = pair;
+        rule->header = header;
     }
-    else {
+    else if (ngx_strcmp(rule->header->data, header->data)) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
-                           "Whitelist rule already exists for params: "
-                           "key=%s, ip=%s, header=%s", key->data, ip->data,
-                           header->data);
+                           "Whitelist rule already exists: "
+                           "key=%s, ip=%s, prev_header=%s, new_header=%s",
+                           key->data, ip->data, rule->header, header->data);
+        
         return NGX_CONF_ERROR;
     }
     
@@ -207,7 +197,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 {
     ngx_http_whitelist_loc_conf_t   *wlcf;
     struct sockaddr_in              *sin;
-    ngx_str_t                       *header, *key, *ip, *set_header;
+    ngx_http_access_rule_t          *rule;
+    ngx_str_t                       *header, *key, *ip;
     ngx_table_elt_t                 *new_header;
         
     wlcf = ngx_http_get_module_loc_conf(r, ngx_http_whitelist_module);
@@ -251,26 +242,19 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      * If a matching rule is found for this ip and key combination
      * populate the header data and let things pass
      */
-    set_header = (ngx_str_t *) ngx_hash_find(wlcf->rules, pair->hash,
-        pair->key.data, pair->key.len);
-        
-    if (set_header != NULL) {
+    rule = find_whitelist_rule(wlcf->rules, pair);
+    if (rule != NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
-        
-        if (ngx_strcmp(set_header->data, NO_HEADER_DATA) == 0) {
-            ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                            "Ignoring header value population");
-            return NGX_OK;
-        }
         
         new_header = ngx_list_push(&r->headers_out.headers);
         if (new_header == NULL) {
             return NGX_ERROR;
         }
 
-        new_header->hash = 1;
         ngx_str_set(&(new_header->key), wlcf->set_header->data);
-        ngx_str_set(&(new_header->value), set_header->data);
+        ngx_str_set(&(new_header->value), rule->header->data);
+        new_header->hash = ngx_hash_key_lc(new_header->value->data,
+                                            new_header->value->len);
         
         return NGX_OK; 
     }
@@ -350,10 +334,10 @@ static void
 build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key, ngx_str_t *ip)
 {
     memset(h->key.data, 0, sizeof(h->key.data));
-    strcat(h->key.data, api_key->data);
-    strcat(h->key.data, ip->data);
+    strcat((const char *)h->key.data, (const char *)api_key->data);
+    strcat((const char *)h->key.data, (const char *)ip->data);
     h->key.len = (strlen(h->key.data) - 1);
-    h->hash = ngx_hash_key_lc(&h->key.data, h->key.len);
+    h->hash = ngx_hash_key_lc(h->key.data, h->key.len);
 }
 
 static ngx_str_t *
@@ -392,7 +376,8 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
      */
     if (found_key->data == NULL && wlcf->check_header != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "getting value from header \"%V\"", &(wlcf->check_header));
+                       "getting value from header \"%V\"",
+                       &(wlcf->check_header));
         
         part = &r->headers_in.headers.part;
         header = part->elts;
@@ -409,11 +394,34 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
             }
             
             if (ngx_strcmp(header[i].key.data, wlcf->check_header->data) == 0) {
-                ngx_str_set(found_key, header[i].value);
+                ngx_str_set(found_key, header[i].value.data);
                 break;
             }
         }
     }
     
     return found_key;
+}
+
+static ngx_http_whitelist_rule_t *
+find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
+{
+    ngx_uint_t               i;
+    ngx_http_access_rule_t  *rule;
+
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "find rule: %d", pair->hash);
+
+    rule = rules->elts;
+    for (i = 0; i < rules->nelts; i++) {
+
+        ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                       "rule: %d", rule[i]->pair->hash);
+
+        if (pair->hash == rule[i]->pair->hash) {
+            return rule[i];
+        }
+    }
+    
+    return NULL;
 }

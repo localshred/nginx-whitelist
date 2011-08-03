@@ -18,7 +18,6 @@
 /*****************************************************************[ config ]***/
 
 
-#define NO_HEADER_DATA      "NO_HEADER_DATA"
 #define MAX_KEY_STR_LEN     56
 
 /*
@@ -28,10 +27,10 @@
  * and optionally a header name to set arbitrary data on successful validation
  */
 typedef struct {
-    ngx_hash_keys_arrays_t  *rules;
-    ngx_str_t               *check_param;
-    ngx_str_t               *check_header;
-    ngx_str_t               *set_header;
+    ngx_array_t     *rules;
+    ngx_str_t       *check_param;
+    ngx_str_t       *check_header;
+    ngx_str_t       *set_header;
 } ngx_http_whitelist_loc_conf_t;
 
 
@@ -39,6 +38,11 @@ typedef struct {
     ngx_uint_t              hash;
     ngx_str_t               key;
 } key_hash_pair;
+
+typedef struct {
+    key_hash_pair           *key_pair;
+    ngx_str_t               *header;
+} ngx_http_whitelist_rule_t;
 
 
 /*************************************************************[ signatures ]***/
@@ -89,6 +93,12 @@ static void build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key,
  */
 static ngx_str_t *get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
     ngx_http_request_t *r);
+
+/*
+ * Find a rule in the rules array based on the hash pair given.
+ */
+static ngx_http_whitelist_rule_t *
+find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair);
 
     
 #endif /* NGX_HTTP_WHITELIST_MODULE_H */
