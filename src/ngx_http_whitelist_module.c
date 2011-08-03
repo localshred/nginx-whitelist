@@ -101,7 +101,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_int_t                       rc;
     ngx_cidr_t                      cidr;
     ngx_str_t                       *value, *key, *header, *ip;
-    nginx_http_whitelist_rule_t     *rule;
+    ngx_http_whitelist_rule_t     *rule;
     ngx_uint_t                      i;
     
     /*
@@ -152,7 +152,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     
     if (wlcf->rules == NULL) {
         wlcf->rules = ngx_array_create(cf->pool, 4,
-                                       sizeof(ngx_http_access_rule_t));
+                                       sizeof(ngx_http_whitelist_rule_t));
         if (wlcf->rules == NULL) {
             return NGX_CONF_ERROR;
         }
@@ -168,7 +168,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
      */
     rule = find_whitelist_rule(wlcf->rules, pair);
     if (rule == NULL) {
-        rule = ngx_array_push(alcf->rules);
+        rule = ngx_array_push(wlcf->rules);
         if (rule == NULL) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Unable to add whitelist rule for params: "
@@ -177,7 +177,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
             return NGX_CONF_ERROR;
         }
 
-        rule->pair = pair;
+        rule->key_pair = pair;
         rule->header = header;
     }
     else if (ngx_strcmp(rule->header->data, header->data)) {
@@ -416,9 +416,9 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
     for (i = 0; i < rules->nelts; i++) {
 
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "rule: %d", rule[i]->pair->hash);
+                       "rule: %d", rule[i]->key_pair->hash);
 
-        if (pair->hash == rule[i]->pair->hash) {
+        if (pair->hash == rule[i]->key_pair->hash) {
             return rule[i];
         }
     }
