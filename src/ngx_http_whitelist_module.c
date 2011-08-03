@@ -124,9 +124,9 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Get the command args and set the appropriate data
      */
-    ngx_str_set(key, ngx_null_string);
-    ngx_str_set(ip, ngx_null_string);
-    ngx_str_set(header, ngx_null_string);
+    key.data = NULL;
+    ip.data = NULL;
+    header.data = NULL;
      
     value = cf->args->elts;
     
