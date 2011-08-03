@@ -87,7 +87,7 @@ static void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key,
  * Get the hashed key value from the request, by parameter first, then header.
  * NULL value indicates not found.
  */
-static ngx_int_t get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
+static ngx_str_t *get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
     ngx_http_request_t *r);
 
     

@@ -101,7 +101,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
 
     ngx_int_t           rc;
     ngx_cidr_t          cidr;
-    ngx_str_t           *value, key, header, ip;
+    ngx_str_t           *value, *key, *header, *ip;
     
     /*
      * Setup the rules hash if one does not already exist
@@ -124,27 +124,27 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Get the command args and set the appropriate data
      */
-    key.data = NULL;
-    ip.data = NULL;
-    header.data = NULL;
+    ngx_str_null(key);
+    ngx_str_null(ip);
+    ngx_str_null(header);
      
     value = cf->args->elts;
     
     ngx_uint_t i;
     for (i = 1; i < cf->args->nelts; i++) {
         if (ngx_strncmp(value[i].data, "key=", 4) == 0) {
-            key.data = value[i].data + 4;
-            key.len = value[i].len - 4;
+            key->data = value[i].data + 4;
+            key->len = value[i].len - 4;
         }
         
         if (ngx_strncmp(value[i].data, "ip=", 3) == 0) {
-            ip.data = value[i].data + 3;
-            ip.len = value[i].len - 3;
+            ip->data = value[i].data + 3;
+            ip->len = value[i].len - 3;
         }
         
         if (ngx_strncmp(value[i].data, "header=", 7) == 0) {
-            header.data = value[i].data + 7;
-            header.len = value[i].len - 7;
+            header->data = value[i].data + 7;
+            header->len = value[i].len - 7;
         }
     }
     
@@ -166,8 +166,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     }
     
     key_hash_pair *pair;
-    pair = ngx_alloc(sizeof(key_hash_pair));
-    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_alloc(sizeof(key_hash_pair), cf->log);
+    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN, cf->log);
     build_key_hash_pair(pair, key, ip);
     
     /*
@@ -207,7 +207,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
 {
     ngx_http_whitelist_loc_conf_t   *wlcf;
     struct sockaddr_in              *sin;
-    ngx_str_t                       header, key, *ip, set_header;
+    ngx_str_t                       *header, *key, *ip, *set_header;
     ngx_table_elt_t                 *new_header;
     ngx_uint_t                      i;
         
@@ -239,8 +239,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
 
     key_hash_pair *pair;
-    pair = ngx_alloc(sizeof(key_hash_pair));
-    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN);
+    pair = ngx_alloc(sizeof(key_hash_pair), cf->log);
+    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN, cf->log);
     build_key_hash_pair(pair, key, ip);
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -251,8 +251,9 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      * If a matching rule is found for this ip and key combination
      * populate the header data and let things pass
      */
-    set_header = ngx_hash_find(wlcf->rules, pair->hash, pair->key.data,
-        pair->key.len);
+    set_header = (ngx_str_t *) ngx_hash_find(wlcf->rules, pair->hash,
+        pair->key.data, pair->key.len);
+        
     if (set_header != NULL) {
         ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
         
@@ -346,26 +347,26 @@ ngx_http_whitelist_init(ngx_conf_t *cf)
 }
 
 static void
-build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
+build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key, ngx_str_t *ip)
 {
     memset(h->key.data, 0, sizeof(h->key.data));
-    strcat(h->key.data, api_key.data);
-    strcat(h->key.data, ip.data);
+    strcat(h->key.data, api_key->data);
+    strcat(h->key.data, ip->data);
     h->key.len = (strlen(h->key.data) - 1);
     h->hash = ngx_hash_key_lc(&h->key.data, h->key.len);
 }
 
-static ngx_str_t
+static ngx_str_t *
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
     ngx_int_t                   key, i;
     ngx_list_part_t             *part;
     ngx_http_variable_value_t   *vv;
     ngx_table_elt_t             *header;
-    ngx_str_t                   found_key;
+    ngx_str_t                   *found_key;
     
     key = 0;
-    ngx_str_set(found_key, ngx_null_string);
+    ngx_str_null(found_key);
 
     /*
      * Fetch the value of the check_param parameter out of the request
