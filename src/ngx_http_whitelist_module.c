@@ -334,9 +334,9 @@ static void
 build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key, ngx_str_t *ip)
 {
     memset(h->key.data, 0, sizeof(h->key.data));
-    strcat((const char *)h->key.data, (const char *)api_key->data);
-    strcat((const char *)h->key.data, (const char *)ip->data);
-    h->key.len = (strlen(h->key.data) - 1);
+    strcat((char *)h->key.data, (char *)api_key->data);
+    strcat((char *)h->key.data, (char *)ip->data);
+    h->key.len = (strlen((char *)h->key.data) - 1);
     h->hash = ngx_hash_key_lc(h->key.data, h->key.len);
 }
 
@@ -418,7 +418,7 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "rule: %d", rule[i]->key_pair.hash);
 
-        if (pair->hash == rule[i]->key_pair.hash) {
+        if (pair->hash == rule[i].key_pair->hash) {
             return rule[i];
         }
     }
