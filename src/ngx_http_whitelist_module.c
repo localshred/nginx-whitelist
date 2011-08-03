@@ -219,7 +219,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     case AF_INET:
         if (wlcf->rules) {
             sin = (struct sockaddr_in *) r->connection->sockaddr;
-            ngx_str_set(ip, *inet_ntoa(sin->sin_addr));
+            ngx_str_set(ip, inet_ntoa(sin->sin_addr));
         }
         break;
     }
@@ -238,8 +238,9 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     }
 
     key_hash_pair *pair;
-    pair = ngx_alloc(sizeof(key_hash_pair), cf->log);
-    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN, cf->log);
+    pair = ngx_alloc(sizeof(key_hash_pair), r->connection->log);
+    pair->key.data = ngx_alloc(sizeof(char) * MAX_KEY_STR_LEN,
+        r->connection->log);
     build_key_hash_pair(pair, key, ip);
 
     ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -268,8 +269,8 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
         }
 
         new_header->hash = 1;
-        ngx_str_set(new_header->key, wlcf->set_header.data);
-        ngx_str_set(new_header->value, set_header);
+        ngx_str_set(&(new_header->key), wlcf->set_header->data);
+        ngx_str_set(&(new_header->value), set_header->data);
         
         return NGX_OK; 
     }
@@ -277,7 +278,7 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
     /*
      * Otherwise log a warning and decline the request
      */
-    ngx_conf_log_error(NGX_LOG_WARN, cf, 0,
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                        "Request denied by whitelist rules: "
                        "key=%s, ip=%s", key->data, ip->data, header->data);
 
@@ -358,7 +359,8 @@ build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key, ngx_str_t *ip)
 static ngx_str_t *
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
-    ngx_int_t                   key, i;
+    ngx_uint_t                  i;
+    ngx_int_t                   key;
     ngx_list_part_t             *part;
     ngx_http_variable_value_t   *vv;
     ngx_table_elt_t             *header;
@@ -373,14 +375,14 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
      */
     if (wlcf->check_param != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "getting value from param \"%V\"", wlcf->check_param);
+                       "getting value from param \"%V\"", &(wlcf->check_param));
 
-        key = ngx_hash_strlow(wlcf->check_param.data, wlcf->check_param.data,
-            wlcf->check_param.len);
+        key = ngx_hash_strlow(wlcf->check_param->data, wlcf->check_param->data,
+            wlcf->check_param->len);
         
         vv = ngx_http_get_variable(r, wlcf->check_param, key);
-        if (vv != NULL && vv.valid == 1) {
-            ngx_str_set(found_key, vv.data);
+        if (vv != NULL && vv->valid == 1) {
+            ngx_str_set(found_key, vv->data);
         }
     }
     
@@ -390,7 +392,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
      */
     if (found_key->data == NULL && wlcf->check_header != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-                       "getting value from header \"%V\"", wlcf->check_param);
+                       "getting value from header \"%V\"", &(wlcf->check_header));
         
         part = &r->headers_in.headers.part;
         header = part->elts;
@@ -406,7 +408,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
                 i = 0;
             }
             
-            if (ngx_strcmp(header[i].key.data, wlcf->check_header.data) == 0) {
+            if (ngx_strcmp(header[i].key.data, wlcf->check_header->data) == 0) {
                 ngx_str_set(found_key, header[i].value);
                 break;
             }
