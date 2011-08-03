@@ -7,6 +7,32 @@
 #include <ngx_http.h>
 
 
+/*****************************************************************[ config ]***/
+
+
+#define NO_HEADER_DATA      ngx_string("NO_HEADER_DATA");
+#define MAX_KEY_STR_LEN     56
+
+/*
+ * Configuration structure which holds whitelist rules,
+ * the request parameter name to check (if any),
+ * the request header name to check (if any),
+ * and optionally a header name to set arbitrary data on successful validation
+ */
+typedef struct {
+    ngx_hash_keys_arrays_t  *rules;
+    ngx_str_t               *check_param;
+    ngx_str_t               *check_header;
+    ngx_str_t               *set_header;
+} ngx_http_whitelist_loc_conf_t;
+
+
+typedef struct {
+    ngx_uint_t              hash;
+    ngx_str_t               key;
+} key_hash_pair;
+
+
 /*************************************************************[ signatures ]***/
 
 
@@ -52,36 +78,11 @@ void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip);
  * Get the hashed key value from the request, by parameter first, then header.
  * NULL value indicates not found.
  */
-ngx_int_t
-get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
+ngx_int_t get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
+    ngx_http_request_t *r);
 
 
-/*****************************************************************[ config ]***/
-
-
-#define NO_DATA             "NO_DATA";
-#define MAX_KEY_STR_LEN     56
-
-/*
- * Configuration structure which holds whitelist rules,
- * the request parameter name to check (if any),
- * the request header name to check (if any),
- * and optionally a header name to set arbitrary data on successful validation
- */
-typedef struct {
-    ngx_hash_keys_arrays_t  *rules;
-    ngx_str_t               *check_param;
-    ngx_str_t               *check_header;
-    ngx_str_t               *set_header;
-} ngx_http_whitelist_loc_conf_t;
-
-
-typedef struct {
-    ngx_uint_t              hash;
-    ngx_str_t               key;
-} key_hash_pair;
-
-
+/******************************************************************[ hooks ]***/
 
 
 /*
@@ -255,8 +256,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
             
         // Create a new empty rule
         if (header == NULL) {
-            header.len = strlen(NO_DATA) - 1;
-            header.data = NO_DATA;
+            ngx_str_set(header, NO_HEADER_DATA);
         }
         
         rc = ngx_hash_add_key(wlcf->rules, &pair->key, &header,
@@ -330,11 +330,11 @@ ngx_http_whitelist_handler(ngx_http_request_t *r)
      * populate the header data and let things pass
      */
     set_header = ngx_hash_find(wlcf->rules, pair->hash, pair->key.data,
-             pair->key.len)
+        pair->key.len);
     if (set_header != NULL) {
         ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "Rule Found");
         
-        if (set_header.data == NO_DATA) {
+        if (set_header == NO_HEADER_DATA) {
             ngx_log_debug3(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                             "Ignoring header value population");
             return NGX_OK;
