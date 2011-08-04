@@ -84,14 +84,14 @@ static ngx_int_t ngx_http_whitelist_init(ngx_conf_t *cf);
  * Takes an allocated hash pair, the api key, and the ip
  * Builds an appropriate hash out of the key and ip
  */
-static void build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key,
-    ngx_str_t *ip);
+static void build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key,
+    ngx_str_t ip);
 
 /*
  * Get the hashed key value from the request, by parameter first, then header.
  * NULL value indicates not found.
  */
-static ngx_str_t *get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
+static ngx_str_t get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
     ngx_http_request_t *r);
 
 /*

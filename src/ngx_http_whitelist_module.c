@@ -100,8 +100,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_http_whitelist_loc_conf_t *wlcf = conf;
     ngx_int_t                       rc;
     ngx_cidr_t                      cidr;
-    ngx_str_t                       *value, *key, *header, *ip;
-    ngx_http_whitelist_rule_t     *rule;
+    ngx_str_t                       *value, key, header, ip;
+    ngx_http_whitelist_rule_t       *rule;
     ngx_uint_t                      i;
     
     /*
@@ -111,26 +111,22 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     /*
      * Get the command args and set the appropriate data
      */
-    ngx_str_null(key);
-    ngx_str_null(ip);
-    ngx_str_null(header);
-     
     value = cf->args->elts;
     
     for (i = 1; i < cf->args->nelts; i++) {
         if (ngx_strncmp(value[i].data, "key=", 4) == 0) {
-            key->data = value[i].data + 4;
-            key->len = value[i].len - 4;
+            key.data = value[i].data + 4;
+            key.len = value[i].len - 4;
         }
         
         if (ngx_strncmp(value[i].data, "ip=", 3) == 0) {
-            ip->data = value[i].data + 3;
-            ip->len = value[i].len - 3;
+            ip.data = value[i].data + 3;
+            ip.len = value[i].len - 3;
         }
         
         if (ngx_strncmp(value[i].data, "header=", 7) == 0) {
-            header->data = value[i].data + 7;
-            header->len = value[i].len - 7;
+            header.data = value[i].data + 7;
+            header.len = value[i].len - 7;
         }
     }
     
@@ -138,7 +134,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
      * Read the ip address in with ngx_ptocidr to verify valid data
      */
     ngx_memzero(&cidr, sizeof(ngx_cidr_t));
-    rc = ngx_ptocidr(ip, &cidr);
+    rc = ngx_ptocidr(&ip, &cidr);
     
     if (rc == NGX_ERROR) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -172,8 +168,8 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
         if (rule == NULL) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "Unable to add whitelist rule for params: "
-                               "key=%s, ip=%s, header=%s", key->data, ip->data,
-                               header->data);
+                               "key=%s, ip=%s, header=%s", key.data, ip.data,
+                               header.data);
             return NGX_CONF_ERROR;
         }
 
@@ -184,7 +180,7 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                            "Whitelist rule already exists: "
                            "key=%s, ip=%s, prev_header=%s, new_header=%s",
-                           key->data, ip->data, rule->header, header->data);
+                           key.data, ip.data, rule->header, header.data);
         
         return NGX_CONF_ERROR;
     }
@@ -331,16 +327,16 @@ ngx_http_whitelist_init(ngx_conf_t *cf)
 }
 
 static void
-build_key_hash_pair(key_hash_pair *h, ngx_str_t *api_key, ngx_str_t *ip)
+build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
 {
     memset(h->key.data, 0, sizeof(h->key.data));
-    strcat((char *)h->key.data, (char *)api_key->data);
-    strcat((char *)h->key.data, (char *)ip->data);
+    strcat((char *)h->key.data, (char *)api_key.data);
+    strcat((char *)h->key.data, (char *)ip.data);
     h->key.len = (strlen((char *)h->key.data) - 1);
     h->hash = ngx_hash_key_lc(h->key.data, h->key.len);
 }
 
-static ngx_str_t *
+static ngx_str_t
 get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
 {
     ngx_uint_t                  i;
@@ -351,7 +347,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
     ngx_str_t                   *found_key;
     
     key = 0;
-    ngx_str_null(found_key);
+    // ngx_str_null(found_key);
 
     /*
      * Fetch the value of the check_param parameter out of the request
@@ -419,7 +415,7 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair)
                        "rule: %d", rule[i]->key_pair.hash);
 
         if (pair->hash == rule[i].key_pair->hash) {
-            return rule[i];
+            return &rule[i];
         }
     }
     
