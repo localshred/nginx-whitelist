@@ -104,6 +104,10 @@ ngx_http_whitelist_rule(ngx_conf_t *cf, ngx_command_t *cmd,
     ngx_http_whitelist_rule_t       *rule;
     ngx_uint_t                      i;
     
+    ngx_str_null(&key);
+    ngx_str_null(&header);
+    ngx_str_null(&ip);
+    
     /*
      * Setup the rules hash if one does not already exist
      */
@@ -340,7 +344,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
     ngx_list_part_t             *part;
     ngx_http_variable_value_t   *vv;
     ngx_table_elt_t             *header;
-    ngx_str_t                   *found_key;
+    ngx_str_t                   found_key;
     
     key = 0;
     
@@ -357,7 +361,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
         
         vv = ngx_http_get_variable(r, wlcf->check_param, key);
         if (vv != NULL && vv->valid == 1) {
-            ngx_str_set(found_key, vv->data);
+            ngx_str_set(&found_key, vv->data);
         }
     }
     
@@ -365,7 +369,7 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
      * If we haven't gotten a value from the parameter, fetch the value of the
      * check_header header out of the request (e.g. X-REQUEST_KEY=THE_KEY)
      */
-    if (found_key->data == NULL && wlcf->check_header != NULL) {
+    if (found_key.data == NULL && wlcf->check_header != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "getting value from header \"%V\"",
                        &(wlcf->check_header));
@@ -385,13 +389,13 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
             }
             
             if (ngx_strcmp(header[i].key.data, wlcf->check_header->data) == 0) {
-                ngx_str_set(found_key, header[i].value.data);
+                ngx_str_set(&found_key, header[i].value.data);
                 break;
             }
         }
     }
     
-    return *found_key;
+    return found_key;
 }
 
 static ngx_http_whitelist_rule_t *
