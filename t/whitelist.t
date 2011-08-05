@@ -10,6 +10,7 @@ run_tests();
 __DATA__
 
 === TEST 1: whitelist compiled but not used
+<<<<<<< HEAD
 --- config
 		location /nowhitelist {
 			index index.html;
@@ -17,3 +18,8 @@ __DATA__
 --- request
     GET /nowhitelist
 --- response_body
+=======
+--- request
+    GET /
+--- error_code: 200
+>>>>>>> added more logging

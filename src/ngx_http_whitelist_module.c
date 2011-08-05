@@ -364,12 +364,11 @@ get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf, ngx_http_request_t *r)
     ngx_table_elt_t             *header;
     ngx_str_t                   found_key;
     
-    key = 0;
-    
     /*
      * Fetch the value of the check_param parameter out of the request
      * (e.g. k=THE_KEY)
      */
+    key = 0;
     if (wlcf->check_param != NULL) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                        "getting value from param \"%V\"", &(wlcf->check_param));
@@ -422,13 +421,12 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair, ngx_log_t *log)
     ngx_uint_t               i;
     ngx_http_whitelist_rule_t  *rule;
     
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0,
-                   "find rule: %d", pair->hash);
+    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0, "find rule: %d", pair->hash);
     
     rule = rules->elts;
     for (i = 0; i < rules->nelts; i++) {
-        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0,
-                       "rule: %d", rule[i].key_pair->hash);
+        ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0, "rule: %d",
+                                                    rule[i]->key_pair.hash);
         
         if (pair->hash == rule[i].key_pair->hash) {
             return &rule[i];
