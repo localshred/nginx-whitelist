@@ -286,14 +286,14 @@ ngx_http_whitelist_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_whitelist_loc_conf_t  *prev = parent;
     ngx_http_whitelist_loc_conf_t  *conf = child;
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] inside ngx_http_whitelist_merge_loc_conf - start");
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] inside ngx_http_whitelist_merge_loc_conf - start");
     
     if (conf->rules == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_merge_loc_conf - merging");
+        ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_merge_loc_conf - merging");
         conf->rules = prev->rules;
     }
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_merge_loc_conf - done");
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_merge_loc_conf - done");
     
     /*
      * Halt server startup if we didn't get a check_param or check_header
@@ -319,27 +319,27 @@ ngx_http_whitelist_init(ngx_conf_t *cf)
     ngx_http_handler_pt        *h;
     ngx_http_core_main_conf_t  *cmcf;
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_init"
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_init"
                                             " - start");
     
     cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_init"
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_init"
                                             " - getting handler pointer");
     
     h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
     if (h == NULL) {
-        ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist]"
+        ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist]"
                                                 " ngx_http_whitelist_init"
                                                 " - handler invalid");
         return NGX_ERROR;
     }
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_init"
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_init"
                                             " - assigning handler");
     *h = ngx_http_whitelist_handler;
     
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] ngx_http_whitelist_init"
+    ngx_log_debug0(NGX_LOG_DEBUG, cf->log, 0, "[whitelist] ngx_http_whitelist_init"
                                             " - done");
     return NGX_OK;
 }
@@ -347,15 +347,11 @@ ngx_http_whitelist_init(ngx_conf_t *cf)
 static void
 build_key_hash_pair(key_hash_pair *h, ngx_str_t api_key, ngx_str_t ip)
 {
-    ngx_log_debug2(NGX_LOG_DEBUG, log, 0, "[whitelist] build_key_hash_pair"
-                                            " - start (key=%s, ip=%s)",
-                                            api_key, ip);
     memset(h->key.data, 0, sizeof(h->key.data));
     strcat((char *)h->key.data, (char *)api_key.data);
     strcat((char *)h->key.data, (char *)ip.data);
     h->key.len = (strlen((char *)h->key.data) - 1);
     h->hash = ngx_hash_key_lc(h->key.data, h->key.len);
-    ngx_log_debug0(NGX_LOG_DEBUG, log, 0, "[whitelist] build_key_hash_pair - done");
 }
 
 static ngx_str_t
@@ -432,7 +428,7 @@ find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair, ngx_log_t *log)
     rule = rules->elts;
     for (i = 0; i < rules->nelts; i++) {
         ngx_log_debug1(NGX_LOG_DEBUG_HTTP, log, 0,
-                       "rule: %d", rule[i]->key_pair.hash);
+                       "rule: %d", rule[i].key_pair->hash);
         
         if (pair->hash == rule[i].key_pair->hash) {
             return &rule[i];

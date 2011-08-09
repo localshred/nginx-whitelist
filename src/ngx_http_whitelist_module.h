@@ -98,7 +98,7 @@ static ngx_str_t get_key_from_request(ngx_http_whitelist_loc_conf_t *wlcf,
  * Find a rule in the rules array based on the hash pair given.
  */
 static ngx_http_whitelist_rule_t *
-find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair);
+find_whitelist_rule(ngx_array_t *rules, key_hash_pair *pair, ngx_log_t *log);
 
     
 #endif /* NGX_HTTP_WHITELIST_MODULE_H */

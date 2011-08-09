@@ -1,0 +1,32 @@
+2011/08/05 16:01:15 [debug] 3939#0: bind() 0.0.0.0:1989 #6 
+2011/08/05 16:01:15 [notice] 3939#0: using the "epoll" event method
+2011/08/05 16:01:15 [notice] 3939#0: nginx/1.0.5
+2011/08/05 16:01:15 [notice] 3939#0: built by gcc 4.4.3 (Ubuntu 4.4.3-4ubuntu5) 
+2011/08/05 16:01:15 [notice] 3939#0: OS: Linux 2.6.32-24-server
+2011/08/05 16:01:15 [notice] 3939#0: getrlimit(RLIMIT_NOFILE): 1024:1024
+2011/08/05 16:01:15 [debug] 3940#0: write: 7, 00007FFF33502C10, 5, 0
+2011/08/05 16:01:15 [debug] 3940#0: malloc: 00000000025C1660:6144
+2011/08/05 16:01:15 [debug] 3940#0: malloc: 00000000025C2E70:11776
+2011/08/05 16:01:15 [debug] 3940#0: malloc: 00000000025C5C80:6656
+2011/08/05 16:01:15 [debug] 3940#0: malloc: 00000000025C7690:6656
+2011/08/05 16:01:15 [debug] 3940#0: epoll add event: fd:6 op:1 ev:00000001
+2011/08/05 16:01:15 [debug] 3940#0: worker cycle
+2011/08/05 16:01:15 [debug] 3940#0: epoll timer: -1
+2011/08/05 16:01:17 [notice] 3940#0: signal 3 (SIGQUIT) received, shutting down
+2011/08/05 16:01:17 [info] 3940#0: epoll_wait() failed (4: Interrupted system call)
+2011/08/05 16:01:17 [debug] 3940#0: timer delta: 2118
+2011/08/05 16:01:17 [debug] 3940#0: posted events 0000000000000000
+2011/08/05 16:01:17 [debug] 3940#0: flush files
+2011/08/05 16:01:17 [notice] 3940#0: exit
+2011/08/05 16:01:17 [debug] 3940#0: epoll del event: fd:6 op:2 ev:00000000
+2011/08/05 16:01:17 [debug] 3940#0: close listening 0.0.0.0:1989 #6 
+2011/08/05 16:01:17 [debug] 3940#0: run cleanup: 00000000025D1F88
+2011/08/05 16:01:17 [debug] 3940#0: cleanup resolver
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025D0B10
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025CBA40
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025CA980
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025C98C0
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025BD650, unused: 0
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025CCB00, unused: 2
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025D1B20, unused: 0
+2011/08/05 16:01:17 [debug] 3940#0: free: 00000000025D6050, unused: 10232
